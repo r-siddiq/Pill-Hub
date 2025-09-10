@@ -93,6 +93,6 @@ Run tests via Android Studio’s test gutter icons or Gradle tasks shown above.
 
 ---
 
-## 👤 Author
-**Rahim Siddiq**
+## 👤 Authors
+**Rahim Siddiq**, **Gary Keupper**, **Jess Hammond**, **Saria Kabbour**
 - This project showcases Android fundamentals: persistence, UI architecture, and testing.
