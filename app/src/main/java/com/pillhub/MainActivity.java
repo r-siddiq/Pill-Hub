@@ -1,0 +1,186 @@
+package com.pillhub;
+
+import android.app.AlertDialog;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.os.Bundle;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
+import android.view.View;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.LiveData;
+
+
+import com.pillhub.Database.PharmacyRepository;
+import com.pillhub.Database.entities.User;
+import com.pillhub.databinding.ActivityMainBinding;
+
+public class MainActivity extends AppCompatActivity {
+
+    private static final String MAIN_ACTIVITY_USER_ID = "com.pillhub.MAIN_ACTIVITY_USER_ID";
+    private static final String SAVED_INSTANCE_STATE_USERID_KEY ="com.pillhub.SAVED_INSTANCE_STATE_USERID_KEY";
+    private static final int LOGGED_OUT = -1;
+    private ActivityMainBinding binding;
+
+    private PharmacyRepository repository;
+
+    public static final String TAG = "GRP7_Pill_Hub";
+
+    int loggedInUserID = LOGGED_OUT;
+    private User user;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        binding = ActivityMainBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
+        repository = PharmacyRepository.getRepository(getApplication());
+        loginUser(savedInstanceState);
+        invalidateOptionsMenu();
+
+        if(loggedInUserID == LOGGED_OUT){
+            Intent intent = LoginActivity.loginIntentFactory(getApplicationContext());
+            startActivity(intent);
+        }
+
+
+        binding.viewPrescriptionsButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = UserPrescriptionActivity.prescriptionActivityIntentFactory(getApplicationContext(), loggedInUserID);
+                startActivity(intent);
+            }
+        });
+
+        binding.adminCenterButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = AdminActionActivity.adminActionIntentFactory(getApplicationContext(),loggedInUserID);
+                startActivity(intent);
+            }
+        });
+        binding.newPrescriptionButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = PrescriptionEntryActivity.prescriptionEntryIntentFactory(getApplicationContext(), loggedInUserID);
+                startActivity(intent);
+            }
+        });
+    }
+
+    static Intent mainActivityIntentFactory(Context context, int userID){
+        Intent intent = new Intent(context, MainActivity.class);
+        intent.putExtra(MAIN_ACTIVITY_USER_ID, userID);
+        return intent;
+    }
+
+    private void loginUser(Bundle savedInstanceState) {
+        //Check shared preference for logged in user
+        SharedPreferences sharedPreferences = getSharedPreferences(getString(R.string.preference_file_key), Context.MODE_PRIVATE);
+        loggedInUserID = sharedPreferences.getInt(getString(R.string.preference_userId_key), LOGGED_OUT);
+
+        if(loggedInUserID == LOGGED_OUT && savedInstanceState != null && savedInstanceState.containsKey(SAVED_INSTANCE_STATE_USERID_KEY)){
+            loggedInUserID = savedInstanceState.getInt(SAVED_INSTANCE_STATE_USERID_KEY, LOGGED_OUT);
+        }
+        if(loggedInUserID == LOGGED_OUT){
+            loggedInUserID = getIntent().getIntExtra(MAIN_ACTIVITY_USER_ID, LOGGED_OUT);
+        }
+        if(loggedInUserID != LOGGED_OUT) {
+            updateSharedPreference();  // Save the logged in user ID to SharedPreferences
+        }
+
+        if(loggedInUserID == LOGGED_OUT){
+            return;
+        }
+
+        LiveData<User> userObserver = repository.getUsersByUserId(loggedInUserID);
+        userObserver.observe(this, user -> {
+            this.user = user;
+            if(this.user != null){
+                invalidateOptionsMenu();
+                updateAdminViewsVisibility();
+            }
+        });
+    }
+
+    private void updateSharedPreference() {
+        SharedPreferences sharedPreferences = getApplicationContext().getSharedPreferences(getString(R.string.preference_file_key),
+                Context.MODE_PRIVATE);
+        SharedPreferences.Editor sharedPreferencesEditor = sharedPreferences.edit();
+        sharedPreferencesEditor.putInt(getString(R.string.preference_userId_key), loggedInUserID);
+        sharedPreferencesEditor.apply();
+    }
+
+    private void logout() {
+        loggedInUserID = LOGGED_OUT;
+        updateSharedPreference();  // Update SharedPreferences with LOGGED_OUT status
+        getIntent().putExtra(MAIN_ACTIVITY_USER_ID, LOGGED_OUT);
+        startActivity(LoginActivity.loginIntentFactory(getApplicationContext()));
+    }
+
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putInt(SAVED_INSTANCE_STATE_USERID_KEY, loggedInUserID);
+        updateSharedPreference();
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.logout_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        MenuItem item = menu.findItem(R.id.logoutMenuItem);
+        item.setVisible(true);
+        if(user == null){
+            return false;
+        }
+        item.setTitle(user.getUsername());
+        item.setOnMenuItemClickListener(new MenuItem.OnMenuItemClickListener() {
+            @Override
+            public boolean onMenuItemClick(@NonNull MenuItem menuItem) {
+
+                showLogoutDialog();
+                return false;
+            }
+        });
+        return true;
+    }
+
+    private void updateAdminViewsVisibility() {
+        boolean isAdmin = user != null && user.isAdmin();
+        binding.adminOptions.setVisibility(isAdmin ? View.VISIBLE : View.GONE);
+        binding.adminCenterButton.setVisibility(isAdmin ? View.VISIBLE : View.GONE);
+        binding.newPrescriptionButton.setVisibility(isAdmin ? View.VISIBLE : View.GONE);
+    }
+
+    private void showLogoutDialog(){
+        AlertDialog.Builder alerBuilder = new AlertDialog.Builder(MainActivity.this);
+        final AlertDialog alertDialog = alerBuilder.create();
+        alerBuilder.setMessage("Logout?");
+        alerBuilder.setPositiveButton("Logout?", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                logout();
+            }
+        });
+
+        alerBuilder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                alertDialog.dismiss();
+            }
+        });
+
+        alerBuilder.create().show();
+    }
+
+}

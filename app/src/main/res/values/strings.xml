@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">Pill HUB</string>
+    <string name="sign_up_title">Please Sign Up</string>
+    <string name="username_hint">Enter Username</string>
+    <string name="password_hint">Enter Password</string>
+    <string name="re_enter_password_hint">Re-Enter Password</string>
+    <string name="next">Next</string>
+    <string name="preference_file_key">PillHUBPreferenceFileKey</string>
+    <string name="preference_userId_key">PillHUBPreferenceUserIdKey</string>
+    <string name="admin_panel">Add Drug</string>
+    <string name="add_new_drug">Add New Drug:</string>
+    <string name="enter_drug_name">Enter drug name</string>
+    <string name="add_drug">Add Drug</string>
+</resources>
